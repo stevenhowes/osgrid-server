@@ -1,0 +1,17 @@
+[Unit]
+Description=OS Grid Server
+ConditionPathExists=/opt/sartools/osgrid-server
+After=network.target
+[Service]
+Type=simple
+User=sartools
+Group=sartools
+WorkingDirectory=/opt/sartools/
+ExecStart=/opt/sartools/osgrid-server --port localhost:9090
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=osgrid-server
+[Install]
+WantedBy=multi-user.target

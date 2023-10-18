@@ -1,13 +1,22 @@
 # osgrid-server - _Ordnance Survey Grid Ref Converter_
 
 This project implements a simple REST server to allow conversion between Ordnance Survey
-grid references and latitude / longitude.
+grid references and latitude / longitude. This fork runs without docker and includes
+a makefile implementing install, run, build, vet, lint, fmt and clean. As this is part
+of an intended set of SAR tools, installation is to /opt/sartools/ and will create the
+user 'sartools' if it does not exist.
+
+## Pre-requisites
+- go
+- make
+- golint (optional)
 
 ## Usage
 
-The easiest way is to start the server using Docker:
+To use this stand-alone (non Docker variant) on http://localhost:9090 just run:
 
-    docker run -d --rm --name osgrid-server -p 9090:9090 paulcager/osgrid-server
+    make install
+    service osgrid-server
 
 A grid reference may then be converted to a lat / lon:
 
