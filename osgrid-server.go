@@ -83,6 +83,7 @@ func makeHTTPServer(listenPort string) *http.Server {
 }
 
 func handleError(w http.ResponseWriter, _ *http.Request, str string, _ error) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusBadRequest)
 	fmt.Fprintf(w, "Invalid request: %q\n", str)
 }
@@ -97,6 +98,7 @@ func handle(w http.ResponseWriter, _ *http.Request, ref osgridref.OsGridRef, lat
 	}
 
 	w.Header().Add("Content-Type", "application/json")
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 	enc := json.NewEncoder(w)
 	enc.SetEscapeHTML(false)
 	err := enc.Encode(reply)
