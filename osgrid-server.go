@@ -1,20 +1,23 @@
 package main
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/paulcager/go-http-middleware"
+	middleware "github.com/paulcager/go-http-middleware"
 	"github.com/paulcager/osgridref"
 	flag "github.com/spf13/pflag"
 )
 
 const (
-	apiVersion = "v4"
+	apiVersion = "v5"
 )
 
 var (
@@ -32,11 +35,12 @@ func main() {
 }
 
 type Reply struct {
-	OSGridRef string  `json:"osGridRef"`
-	Easting   int     `json:"easting"`
-	Northing  int     `json:"northing"`
-	Lat       float64 `json:"lat"`
-	Lon       float64 `json:"lon"`
+	OSGridRef  string  `json:"osGridRef"`
+	Easting    int     `json:"easting"`
+	Northing   int     `json:"northing"`
+	Lat        float64 `json:"lat"`
+	Lon        float64 `json:"lon"`
+	UsageCount int     `json:"usageCount"`
 }
 
 func makeHTTPServer(listenPort string) *http.Server {
@@ -82,19 +86,64 @@ func makeHTTPServer(listenPort string) *http.Server {
 	return s
 }
 
+func md5hash(text string) string {
+	hash := md5.New()
+	hash.Write([]byte(text))
+	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
 func handleError(w http.ResponseWriter, _ *http.Request, str string, _ error) {
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusBadRequest)
 	fmt.Fprintf(w, "Invalid request: %q\n", str)
 }
 
-func handle(w http.ResponseWriter, _ *http.Request, ref osgridref.OsGridRef, lat float64, lon float64) {
+func handle(w http.ResponseWriter, r *http.Request, ref osgridref.OsGridRef, lat float64, lon float64) {
+	authorization := r.Header.Get("Authorization")
+
+	// extract bearer token from authorization header
+	if authorization != "" {
+		authorization = strings.TrimPrefix(strings.ToLower(authorization), "bearer ")
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	usageCount := 0
+
+	// if file exists, increment usage count
+	if authorization != "" {
+		authorization = md5hash(authorization)
+		filePath := "keys/" + authorization
+		if _, err := os.Stat(filePath); err == nil {
+			data, err := os.ReadFile(filePath)
+			if err == nil {
+				usageCount, err = strconv.Atoi(strings.TrimSpace(string(data)))
+				if err == nil {
+					usageCount++
+					err = os.WriteFile(filePath, []byte(strconv.Itoa(usageCount)), 0644)
+					if err != nil {
+						log.Printf("Failed to write usage count: %s", err)
+					}
+				} else {
+					log.Printf("Failed to parse usage count: %s", err)
+				}
+			} else {
+				log.Printf("Failed to read file: %s", err)
+			}
+		} else {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+	}
+
 	reply := Reply{
-		OSGridRef: ref.StringNCompact(8),
-		Easting:   ref.Easting,
-		Northing:  ref.Northing,
-		Lat:       lat,
-		Lon:       lon,
+		OSGridRef:  ref.StringNCompact(8),
+		Easting:    ref.Easting,
+		Northing:   ref.Northing,
+		Lat:        lat,
+		Lon:        lon,
+		UsageCount: usageCount,
 	}
 
 	w.Header().Add("Content-Type", "application/json")
